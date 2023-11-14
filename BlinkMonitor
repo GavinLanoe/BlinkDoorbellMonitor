@@ -1,0 +1,55 @@
+# Define the target device and email configuration
+$DeviceIPAddress = "<DEVICE IP>"  # Replace with your network device's IP address
+$EmailRecipient = "<EMAIL RECIP>"  # Replace with the recipient's email address
+$EmailSender = "<EMAIL SENDER>"  # Replace with the sender's email address
+$SmtpServer = "<SMTP SERVER>"  # Replace with your SMTP server
+$SmtpPort = 25  # Replace with your SMTP port
+
+# Set the ping interval (15 seconds)
+$PingInterval = 15
+
+# Initialize timers
+$Timer = 0
+$UnresponsiveDuration = 0
+
+# Set the threshold for sending an email (12 hours in seconds)
+$Threshold = 12 * 60 * 60 # Live testing time 12 Hours
+#$Threshold = 60 # Testing duration 1 minute
+
+# Infinite loop
+while ($true) {
+    $CurrentTime = Get-Date
+
+    # Ping the device
+    $PingResult = Test-Connection -ComputerName $DeviceIPAddress -Count 1 -ErrorAction SilentlyContinue
+
+    if ($PingResult) {
+        Write-Host "Device is responsive at $($CurrentTime). Timer reset to 0."
+
+        # Reset the timers
+        $Timer = 0
+        $UnresponsiveDuration = 0
+    } else {
+        Write-Host "Device is not responsive at $($CurrentTime)."
+        $UnresponsiveDuration += $PingInterval
+
+        if ($UnresponsiveDuration -ge $Threshold) {
+            Write-Host "Sending an email alert after 12 hours of unresponsiveness..."
+            
+            # Send an email alert
+            Send-MailMessage -To $EmailRecipient -From $EmailSender -Subject "Network Device Alert: Device Unresponsive for 12 Hours" -Body "The network device ($DeviceIPAddress) has been unresponsive for 12 hours or more" -SmtpServer $SmtpServer -Port $SmtpPort
+
+            Write-Host "Email alert sent at $($CurrentTime)."
+            
+            # Reset the timers
+            $Timer = 0
+            $UnresponsiveDuration = 0
+        }
+    }
+
+    # Increase the timers
+    $Timer += $PingInterval
+
+    # Pause for the specified ping interval
+    Start-Sleep -Seconds $PingInterval
+}
